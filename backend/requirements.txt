@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+python-dotenv
+websockets
+# We will need these for the AI model later, let's add them now
+torch
+scikit-learn
