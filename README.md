@@ -60,24 +60,30 @@ Development Workflow (Recommended)
 This is the easiest way to get the entire application running on your local machine with a single command.
 
 Step 1: Clone the Repository
-Bash
+```
 
 git clone <your-repository-url>
 cd aegis-swarm
+
+```
 Step 2: Create the Environment File
 Navigate into the backend directory and create the .env file by copying the example.
 
-Bash
+```
 
 cd backend
 cp .env.example .env
 cd .. 
+
+```
 Step 3: Run the Application
 From the root of the project directory, run the following command:
 
-Bash
+```
 
 docker-compose up --build
+
+```
 This command will:
 
 Build the Docker images for all services.
@@ -122,10 +128,12 @@ eval $(minikube -p minikube docker-env)
 Step 3: Build Production Docker Images
 From the project root, build the production-ready images:
 
-Bash
+```
 
 docker build -t aegis-swarm-backend ./backend
 docker build -t aegis-swarm-frontend ./frontend
+
+```
 (Note: For this to work, ensure your frontend/Dockerfile is the multi-stage production version with Nginx, not the development version.)
 
 Step 4: Deploy to Kubernetes
@@ -141,9 +149,11 @@ This will create the training job, deployments, and services in your cluster.
 Step 5: Access the Application
 Find the URL for the frontend service:
 
-Bash
+```
 
 minikube service frontend-service
+
+```
 This command will automatically open the application URL in your browser.
 
 Step 6: Run Simulators Manually
@@ -152,10 +162,15 @@ To provide data to your Kubernetes deployment, run the simulator script locally:
 Bash
 
 # Make sure to activate the Python virtual environment first
+```
 python swarm_launcher.py
+
+```
 (Note: Configure the simulator's WebSocket URI to point to the external IP of your Kubernetes service.)
 
 Project Structure
+```
+
 aegis-swarm/
 ├── backend/
 │   ├── app/
@@ -183,3 +198,5 @@ aegis-swarm/
 ├── docker-compose.yml
 ├── swarm_launcher.py
 └── README.md
+
+```
