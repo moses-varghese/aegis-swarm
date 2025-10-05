@@ -27,7 +27,8 @@ function App() {
 
   useEffect(() => {
     // const ws = new WebSocket("ws://localhost:8000/ws/dashboard");
-    const ws = new WebSocket(`ws://${window.location.host}/ws/dashboard`);
+    // const ws = new WebSocket(`ws://${window.location.host}/ws/dashboard`);
+    const ws = new WebSocket('ws://localhost:8000/ws/dashboard');
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);

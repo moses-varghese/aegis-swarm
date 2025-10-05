@@ -1,17 +1,19 @@
 import torch
 import pandas as pd
 import joblib
+import os
 from sklearn.preprocessing import MinMaxScaler
 from torch.utils.data import DataLoader, TensorDataset
-from model import Autoencoder, INPUT_DIM
+from model import Autoencoder
 import random
 import numpy as np
 
+# --- Define the output directory ---
+OUTPUT_DIR = "app/ml"
+os.makedirs(OUTPUT_DIR, exist_ok=True) # Ensure the directory exists
+
 # --- 1. Data Generation ---
 def generate_normal_data(num_samples=5000):
-    """
-    Generates a DataFrame of normal drone telemetry data.
-    """
     data = []
     lat, lon, alt, battery = 8.5241, 76.9366, 100.0, 100.0
     for _ in range(num_samples):
@@ -31,13 +33,12 @@ data = df[features].values
 print("Scaling data...")
 scaler = MinMaxScaler()
 data_scaled = scaler.fit_transform(data)
-# Save the scaler for later use in inference
-joblib.dump(scaler, 'scaler.pkl')
-print("Scaler saved to scaler.pkl")
+joblib.dump(scaler, os.path.join(OUTPUT_DIR, 'scaler.pkl'))
+print(f"Scaler saved to {OUTPUT_DIR}/scaler.pkl")
 
 # --- 3. PyTorch DataLoader ---
 tensor_data = torch.FloatTensor(data_scaled)
-dataset = TensorDataset(tensor_data, tensor_data) # Input and target are the same
+dataset = TensorDataset(tensor_data, tensor_data)
 data_loader = DataLoader(dataset, batch_size=32, shuffle=True)
 
 # --- 4. Model Training ---
@@ -49,20 +50,15 @@ optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 num_epochs = 20
 for epoch in range(num_epochs):
     for data_batch, _ in data_loader:
-        # Forward pass
         recon = model(data_batch)
         loss = criterion(recon, data_batch)
-        
-        # Backward pass and optimization
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-        
     print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.6f}')
 
-# Save the trained model
-torch.save(model.state_dict(), 'autoencoder.pth')
-print("Model trained and saved to autoencoder.pth")
+torch.save(model.state_dict(), os.path.join(OUTPUT_DIR, 'autoencoder.pth'))
+print(f"Model trained and saved to {OUTPUT_DIR}/autoencoder.pth")
 
 # --- 5. Determine Anomaly Threshold ---
 print("Determining anomaly threshold...")
@@ -73,10 +69,8 @@ with torch.no_grad():
         loss = torch.mean((data_batch - recon) ** 2, dim=1)
         reconstruction_errors.extend(loss.numpy())
 
-# Set threshold to be a value slightly higher than the max reconstruction error on normal data
-threshold = np.max(reconstruction_errors) * 1.2 
+threshold = np.max(reconstruction_errors) * 1.2
 print(f"Calculated anomaly threshold: {threshold}")
-# Save the threshold
-with open("threshold.txt", "w") as f:
+with open(os.path.join(OUTPUT_DIR, "threshold.txt"), "w") as f:
     f.write(str(threshold))
-print("Threshold saved to threshold.txt")
+print(f"Threshold saved to {OUTPUT_DIR}/threshold.txt")

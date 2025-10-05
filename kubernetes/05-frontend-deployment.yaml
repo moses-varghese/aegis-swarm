@@ -15,5 +15,6 @@ spec:
       containers:
       - name: frontend
         image: aegis-swarm-frontend
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80

@@ -94,7 +94,8 @@ import random
 import uuid
 from datetime import datetime
 
-WEBSOCKET_URI = "ws://localhost:8000/ws/drone"
+# WEBSOCKET_URI = "ws://localhost:8000/ws/drone"
+WEBSOCKET_URI = "ws://backend:8000/ws/drone"
 
 class Drone:
     def __init__(self, drone_id):

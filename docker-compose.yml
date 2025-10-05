@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  training:
+    build: ./backend
+    command: python app/ml/train.py
+    volumes:
+      - model-data:/app/app/ml
+
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - model-data:/app/app/ml
+    env_file:
+      - ./backend/.env
+    healthcheck:
+      test: ["CMD", "python", "healthcheck.py"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    depends_on:
+      training:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/src:/app/src
+    environment:
+      - WDS_SOCKET_PORT:0
+    depends_on:
+      - backend
+
+  swarm-simulator:
+    build: ./backend
+    command: python swarm_launcher.py
+    volumes:
+      - .:/app
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  model-data:

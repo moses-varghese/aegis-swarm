@@ -15,6 +15,7 @@ spec:
       containers:
       - name: backend
         image: aegis-swarm-backend
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 8000
         volumeMounts:
