@@ -1,3 +1,21 @@
-# Inside .gitignore
-venv/
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environments
+.env
+.venv
 .venv/
+venv/
+env/
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# IDE / Editor specific
+.idea/
+.vscode/
+*.swp
