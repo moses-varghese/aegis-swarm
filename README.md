@@ -96,22 +96,29 @@ Open your web browser and navigate to http://localhost:3000. You should see the 
 Step 5: Stop the Application
 To stop all running services, press Ctrl+C in the terminal, and then run:
 
-Bash
+```
 
 docker-compose down
+
+```
 Production Deployment Workflow (Kubernetes)
 This workflow deploys the application to a local Kubernetes cluster using Minikube.
 
 Step 1: Start Minikube
-Bash
+```
 
 minikube start
+
+```
 Step 2: Point Docker to Minikube's Environment
 In the same terminal, run this command to ensure the images you build are visible to Minikube:
 
-Bash
+```
 
 eval $(minikube -p minikube docker-env)
+
+```
+
 Step 3: Build Production Docker Images
 From the project root, build the production-ready images:
 
@@ -124,9 +131,11 @@ docker build -t aegis-swarm-frontend ./frontend
 Step 4: Deploy to Kubernetes
 Apply all the Kubernetes manifest files with a single command:
 
-Bash
+```
 
 kubectl apply -f kubernetes/
+
+```
 This will create the training job, deployments, and services in your cluster.
 
 Step 5: Access the Application
