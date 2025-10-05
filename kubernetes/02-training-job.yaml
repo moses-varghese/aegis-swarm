@@ -1,0 +1,20 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: model-training-job
+spec:
+  template:
+    spec:
+      containers:
+      - name: trainer
+        image: aegis-swarm-backend # Use the image we'll build
+        command: ["python", "app/ml/train.py"]
+        volumeMounts:
+        - name: model-storage
+          mountPath: /app/app/ml
+      restartPolicy: Never
+      volumes:
+      - name: model-storage
+        persistentVolumeClaim:
+          claimName: model-storage-claim
+  backoffLimit: 4
