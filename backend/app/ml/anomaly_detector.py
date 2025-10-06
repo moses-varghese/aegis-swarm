@@ -4,13 +4,16 @@ import numpy as np
 from .model import Autoencoder
 
 class AnomalyDetector:
-    def __init__(self, model_path='autoencoder.pth', scaler_path='scaler.pkl', threshold_path='threshold.txt'):
+    def __init__(self, model_path='autoencoder.pth', scaler_path='scaler.pkl', threshold_path='threshold.txt', classifier_path='classifier.pkl'):
         # Load the trained model
         self.model = Autoencoder()
         # The model was trained in the 'ml' directory, so adjust path if needed
         model_file = f"app/ml/{model_path}"
         scaler_file = f"app/ml/{scaler_path}"
         threshold_file = f"app/ml/{threshold_path}"
+        # --- NEW: Load the Classifier model ---
+        classifier_file = f"app/ml/{classifier_path}"
+        self.classifier = joblib.load(classifier_file)
         
         self.model.load_state_dict(torch.load(model_file))
         self.model.eval()
@@ -22,7 +25,7 @@ class AnomalyDetector:
         with open(threshold_file, "r") as f:
             self.threshold = float(f.read())
         
-        print("AnomalyDetector initialized with model, scaler, and threshold.")
+        print("AnomalyDetector initialized with Autoencoder, Classifier, Scaler, and Threshold.")
 
     def predict(self, telemetry: dict) -> dict:
         """
@@ -48,9 +51,16 @@ class AnomalyDetector:
             error = torch.mean((tensor_data - reconstruction) ** 2).item()
             
         is_anomaly = error > self.threshold
+
+        anomaly_type = "None"
+        # --- Step 2: If anomaly is detected, classify its type ---
+        if is_anomaly:
+            prediction = self.classifier.predict(data_scaled)
+            anomaly_type = prediction[0]
         
         return {
             "is_anomaly": is_anomaly,
             "reconstruction_error": error,
-            "threshold": self.threshold
+            "threshold": self.threshold,
+            "anomaly_type": anomaly_type
         }

@@ -3,6 +3,7 @@ import pandas as pd
 import joblib
 import os
 from sklearn.preprocessing import MinMaxScaler
+from sklearn.ensemble import RandomForestClassifier
 from torch.utils.data import DataLoader, TensorDataset
 from model import Autoencoder
 import random
@@ -24,10 +25,50 @@ def generate_normal_data(num_samples=5000):
         data.append([lat, lon, alt, battery])
     return pd.DataFrame(data, columns=['lat', 'lon', 'altitude', 'battery_level'])
 
+# --- NEW: Labeled Anomaly Data Generation ---
+def generate_labeled_anomalies(num_samples_per_type=2500):
+    """Generates a DataFrame of labeled anomalous data."""
+    anomalies = []
+    
+    # Type 1: GPS Spoofing (erratic, large jumps in location)
+    for _ in range(num_samples_per_type):
+        anomalies.append([
+            8.5241 + random.uniform(-0.5, 0.5), # Large lat jump
+            76.9366 + random.uniform(-0.5, 0.5), # Large lon jump
+            100.0 + random.uniform(-10, 10),
+            90.0 - random.uniform(0, 5),
+            "GPS Spoofing" # Label
+        ])
+        
+    # Type 2: Rapid Battery Drain (sudden, sharp drops in battery)
+    for _ in range(num_samples_per_type):
+        anomalies.append([
+            8.5241 + random.uniform(-0.0001, 0.0001),
+            76.9366 + random.uniform(-0.0001, 0.0001),
+            100.0 + random.uniform(-1, 1),
+            80.0 - random.uniform(10, 20), # Rapid drain
+            "Rapid Battery Drain" # Label
+        ])
+    
+    columns = ['lat', 'lon', 'altitude', 'battery_level', 'anomaly_type']
+    return pd.DataFrame(anomalies, columns=columns)
+
+# print("Generating normal flight data...")
+# df = generate_normal_data()
+# features = ['lat', 'lon', 'altitude', 'battery_level']
+# data = df[features].values
+
 print("Generating normal flight data...")
-df = generate_normal_data()
+print("Generating labeled anomaly data...")
+df_normal = generate_normal_data()
+df_normal['anomaly_type'] = 'Normal'
+
+df_anomalies = generate_labeled_anomalies()
+df_combined = pd.concat([df_normal, df_anomalies], ignore_index=True)
+
 features = ['lat', 'lon', 'altitude', 'battery_level']
-data = df[features].values
+labels = df_combined['anomaly_type']
+data = df_combined[features].values
 
 # --- 2. Data Scaling ---
 print("Scaling data...")
@@ -40,6 +81,15 @@ print(f"Scaler saved to {OUTPUT_DIR}/scaler.pkl")
 tensor_data = torch.FloatTensor(data_scaled)
 dataset = TensorDataset(tensor_data, tensor_data)
 data_loader = DataLoader(dataset, batch_size=32, shuffle=True)
+
+print("Training RandomForestClassifier...")
+classifier = RandomForestClassifier(n_estimators=100, random_state=42)
+classifier.fit(data_scaled, labels)
+
+# Save the trained classifier
+classifier_path = os.path.join(OUTPUT_DIR, 'classifier.pkl')
+joblib.dump(classifier, classifier_path)
+print(f"Classifier saved to {classifier_path}")
 
 # --- 4. Model Training ---
 print("Training Autoencoder model...")

@@ -1,8 +1,13 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
+
 fastapi
 uvicorn[standard]
 python-dotenv
 websockets
 # We will need these for the AI model later, let's add them now
-torch
+# torch
 scikit-learn
 pandas
+requests
+redis

@@ -1,6 +1,7 @@
 import subprocess
 import sys
 import time
+import uuid
 
 # --- A Python Script to Launch a Swarm of Drones ---
 
@@ -15,9 +16,10 @@ python_executable = "python"
 
 # Launch all the drone simulator processes
 for i in range(NUM_DRONES):
-    print(f"Launching drone #{i+1}...")
+    drone_id = uuid.uuid4()
+    print(f"Launching drone #{i+1} with ID: {drone_id}")
     # Popen runs the command in a new process
-    proc = subprocess.Popen([python_executable, "simulators/drone_simulator.py"])
+    proc = subprocess.Popen([python_executable, "simulators/drone_simulator.py", str(drone_id)])
     processes.append(proc)
     time.sleep(0.5) # Stagger the launches slightly
 

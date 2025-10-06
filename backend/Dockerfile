@@ -4,9 +4,13 @@ FROM python:3.11-slim
 # Set the working directory in the container
 WORKDIR /app
 
+# Upgrade pip first
+RUN pip install --upgrade pip
+
 # Copy the requirements file and install dependencies first for better caching
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
+# RUN pip install --timeout=600 --no-cache-dir -r requirements.txt
 
 # Copy the new healthcheck script
 COPY healthcheck.py .

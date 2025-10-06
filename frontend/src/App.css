@@ -63,3 +63,35 @@ body {
 .recharts-wrapper {
   color: #333; /* Fix for tooltip text color */
 }
+
+.command-button {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  background-color: #F44336; /* Red to indicate action */
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 1rem;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.command-button:hover {
+  background-color: #D32F2F; /* Darker red on hover */
+}
+
+.dashboard {
+  width: 400px; /* Widen the dashboard */
+  background-color: #242424;
+  border-right: 1px solid #444;
+  display: flex; /* Use flexbox for layout */
+  flex-direction: column; /* Stack children vertically */
+}
+
+.main-controls {
+  flex-grow: 1; /* Allow this section to take up available space */
+  overflow-y: auto; /* Make it scrollable if content overflows */
+  padding: 1rem;
+}

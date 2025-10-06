@@ -1,6 +1,10 @@
 version: '3.8'
 
 services:
+  redis:
+    image: "redis:alpine"
+    ports:
+      - "6379:6379"
   training:
     build: ./backend
     command: python app/ml/train.py
@@ -23,6 +27,8 @@ services:
     depends_on:
       training:
         condition: service_completed_successfully
+      redis:
+        condition: service_started
 
   frontend:
     build:

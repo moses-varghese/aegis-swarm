@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import AlertPanel from './components/AlertPanel'; // Import the new component
 import L from 'leaflet';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -23,6 +24,7 @@ const anomalyIcon = new L.Icon({
 
 function App() {
   const [drones, setDrones] = useState({});
+  const [alerts, setAlerts] = useState([]);
   const [selectedDrone, setSelectedDrone] = useState(null);
 
   useEffect(() => {
@@ -32,6 +34,12 @@ function App() {
 
     ws.onmessage = (event) => {
       const data = JSON.parse(event.data);
+
+      // NEW: Differentiate between message types
+      if (data.type === 'telemetry') {
+
+
+
       setDrones(prevDrones => {
         const newHistory = prevDrones[data.drone_id] 
           ? [...prevDrones[data.drone_id].history, { error: data.reconstruction_error, time: new Date().toLocaleTimeString() }]
@@ -48,6 +56,9 @@ function App() {
           }
         };
       });
+    } else if (data.type === 'alert') {
+        setAlerts(prevAlerts => [...prevAlerts, data]);
+      }
     };
 
     ws.onclose = () => console.log("WebSocket disconnected");
@@ -56,12 +67,34 @@ function App() {
     return () => ws.close();
   }, []);
 
+
+  // --- NEW: Function to send commands to the backend API ---
+  const handleSendCommand = async (droneId, command) => {
+    try {
+      const response = await fetch(`http://localhost:8000/api/drones/${droneId}/command`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ command }),
+      });
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      const result = await response.json();
+      console.log('Command success:', result);
+    } catch (error) {
+      console.error('Failed to send command:', error);
+    }
+  };
+
   const center = [8.5241, 76.9366]; // Thiruvananthapuram
   const selectedDroneData = drones[selectedDrone];
 
   return (
-    <div className="app-container">
-      <div className="dashboard">
+  <div className="app-container">
+    <div className="dashboard">
+      <div className="main-controls">
         <h1>Aegis Swarm Control</h1>
         <ul className="drone-list">
           {Object.values(drones).map(drone => (
@@ -71,7 +104,10 @@ function App() {
               onClick={() => setSelectedDrone(drone.drone_id)}
             >
               <strong>Drone ID:</strong> {drone.drone_id.substring(0, 8)}<br />
-              <strong>Status:</strong> {drone.status}
+              <strong>Status:</strong>
+              <span style={{ color: drone.is_anomaly ? '#F44336' : '#4CAF50', fontWeight: 'bold' }}>
+                {drone.is_anomaly ? ` ${drone.anomaly_type}` : ' Normal'}
+              </span>
             </li>
           ))}
         </ul>
@@ -80,8 +116,26 @@ function App() {
             <h2>Details for Drone {selectedDrone.substring(0, 8)}</h2>
             <p><strong>Battery:</strong> {selectedDroneData.battery_level.toFixed(2)}%</p>
             <p><strong>Altitude:</strong> {selectedDroneData.location.altitude.toFixed(2)}m</p>
-            <p><strong>Anomaly:</strong> {selectedDroneData.is_anomaly ? 'YES' : 'NO'}</p>
+            <p>
+              <strong>Status:</strong>{' '}
+              {selectedDroneData.is_anomaly ? (
+                <span style={{ color: '#F44336', fontWeight: 'bold' }}>
+                  {selectedDroneData.anomaly_type}
+                </span>
+              ) : (
+                <span style={{ color: '#4CAF50' }}>Normal</span>
+              )}
+            </p>
             <p><strong>Reconstruction Error:</strong> {selectedDroneData.reconstruction_error.toFixed(6)}</p>
+
+            {selectedDroneData.is_anomaly && (
+              <button
+                className="command-button"
+                onClick={() => handleSendCommand(selectedDroneData.drone_id, 'RTB')}
+              >
+                Send RTB Command
+              </button>
+            )}
             
             <ResponsiveContainer width="100%" height={200}>
               <LineChart data={selectedDroneData.history}>
@@ -96,6 +150,8 @@ function App() {
           </div>
         )}
       </div>
+      <AlertPanel alerts={alerts} />
+    </div>
 
       <div className="map-container">
         <MapContainer center={center} zoom={13} style={{ height: '100%', width: '100%' }}>
