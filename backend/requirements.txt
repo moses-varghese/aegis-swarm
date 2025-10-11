@@ -11,3 +11,4 @@ scikit-learn
 pandas
 requests
 redis
+python-json-logger

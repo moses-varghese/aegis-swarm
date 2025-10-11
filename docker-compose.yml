@@ -1,6 +1,43 @@
 version: '3.8'
 
 services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.17.9
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # Limit memory usage for development
+    volumes:
+      - esdata:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - aegis_net
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:7.17.9
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch
+    networks:
+      - aegis_net
+
+  fluentd:
+    build: ./fluentd
+    container_name: fluentd
+    volumes:
+      - ./fluentd/conf:/fluentd/etc
+    ports:
+      - "24224:24224"
+      - "24224:24224/udp"
+    depends_on:
+      - elasticsearch
+    networks:
+      - aegis_net
+  
+
   redis:
     image: "redis:alpine"
     ports:
@@ -29,6 +66,13 @@ services:
         condition: service_completed_successfully
       redis:
         condition: service_started
+    networks:
+      - aegis_net
+    logging: # NEW: Send logs to Fluentd
+      driver: "fluentd"
+      options:
+        fluentd-address: localhost:24224
+        tag: docker.backend
 
   frontend:
     build:
@@ -42,6 +86,13 @@ services:
       - WDS_SOCKET_PORT:0
     depends_on:
       - backend
+    networks:
+      - aegis_net
+    logging: # NEW: Send logs to Fluentd
+      driver: "fluentd"
+      options:
+        fluentd-address: localhost:24224
+        tag: docker.backend
 
   swarm-simulator:
     build: ./backend
@@ -51,6 +102,18 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    networks:
+      - aegis_net
+    logging: # NEW: Send logs to Fluentd
+      driver: "fluentd"
+      options:
+        fluentd-address: localhost:24224
+        tag: docker.backend
+networks:
+  aegis_net:
+    driver: bridge
 
 volumes:
+  esdata:
+    driver: local
   model-data:
