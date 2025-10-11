@@ -88,6 +88,19 @@ import json
 import random
 import uuid
 from datetime import datetime
+from pythonjsonlogger import jsonlogger
+import logging
+import sys
+
+# --- Structured Logging Configuration ---
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logHandler = logging.StreamHandler()
+formatter = jsonjsonlogger.JsonFormatter('%(asctime)s %(levelname)s %(message)s')
+logHandler.setFormatter(formatter)
+# Avoid adding duplicate handlers if this script is imported
+if not logger.handlers:
+    logger.addHandler(logHandler)
 
 # The base URI for WebSocket connections
 WEBSOCKET_URI_BASE = "ws://backend:8000/ws/drone/"
@@ -110,7 +123,7 @@ class Drone:
             # 50% chance to trigger an anomaly
             if random.random() < 0.5:
                 self.anomaly_mode = True
-                print(f"!!! Anomaly Mode Activated for Drone {self.id} !!!")
+                logger.warning("Anomaly Mode Activated.", extra={'drone_id': self.id})
 
         if self.anomaly_mode:
             # Simulate anomalous behavior
@@ -150,33 +163,44 @@ class Drone:
             message = await asyncio.wait_for(websocket.recv(), timeout=0.1)
             command_data = json.loads(message)
             if command_data.get("command") == "RTB":
-                print(f"!!! Drone {self.id} received RTB command. Returning to Base. !!!")
+                logger.info("Received RTB command.", extra={'drone_id': self.id})
                 self.status = "Returning to Base"
         except asyncio.TimeoutError:
             pass # No command received, continue normally
+        except Exception:
+            logger.error("Error processing command.", extra={'drone_id': self.id}, exc_info=True)
 
 async def run_simulator(drone_id):
     drone = Drone(drone_id)
     uri = WEBSOCKET_URI_BASE + str(drone_id)
-    print(f"🛰️ Drone Simulator started for Drone ID: {drone_id}")
-    
-    async with websockets.connect(uri) as websocket:
-        print(f"📡 Connected to backend at {uri}")
-        while drone.status not in ["Offline", "Landed"]:
-            # Listen for commands in a non-blocking way
-            await drone.handle_commands(websocket)
+    logger.info(f"Simulator starting.", extra={'drone_id': drone_id, 'uri': uri})
+    try:
+        async with websockets.connect(uri) as websocket:
+            logger.info("Successfully connected to backend.", extra={'drone_id': drone_id})
+            while drone.status not in ["Offline", "Landed"]:
+                # Listen for commands in a non-blocking way
+                await drone.handle_commands(websocket)
 
-            # Send telemetry
-            telemetry_data = drone.get_telemetry()
-            await websocket.send(json.dumps(telemetry_data))
-            
-            await asyncio.sleep(2)
-        print(f"Drone {drone_id} is offline. Simulator shutting down.")
+                # Send telemetry
+                telemetry_data = drone.get_telemetry()
+                await websocket.send(json.dumps(telemetry_data))
+                logger.debug("Telemetry sent.", extra={'drone_id': drone_id})
+                
+                await asyncio.sleep(2)
+            logger.info("Drone is offline. Simulator shutting down.", extra={'drone_id': drone_id})
+    except websockets.exceptions.ConnectionClosedError as e:
+        logger.error(f"Connection to backend lost: {e}", extra={'drone_id': drone_id})
+    except Exception:
+        logger.error("An unexpected error occurred in the simulator.", extra={'drone_id': drone_id}, exc_info=True)
 
 # Update the main execution block to pass a unique ID
 if __name__ == "__main__":
-    drone_id = uuid.uuid4()
+    # drone_id = uuid.uuid4()
+    if len(sys.argv) > 1:
+        drone_id = sys.argv[1]
+    else:
+        drone_id = str(uuid.uuid4())
     try:
         asyncio.run(run_simulator(drone_id))
     except Exception as e:
-        print(f"Simulator error: {e}")
+        logger.error(extra={'Simulator error': e})

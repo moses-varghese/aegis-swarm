@@ -8,6 +8,18 @@ from torch.utils.data import DataLoader, TensorDataset
 from model import Autoencoder
 import random
 import numpy as np
+from pythonjsonlogger import jsonlogger
+import logging
+
+
+# --- Structured Logging Configuration ---
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+logHandler = logging.StreamHandler()
+formatter = jsonlogger.JsonFormatter('%(asctime)s %(name)s %(levelname)s %(message)s')
+logHandler.setFormatter(formatter)
+logger.addHandler(logHandler)
+
 
 # --- Define the output directory ---
 OUTPUT_DIR = "app/ml"
@@ -58,60 +70,65 @@ def generate_labeled_anomalies(num_samples_per_type=2500):
 # features = ['lat', 'lon', 'altitude', 'battery_level']
 # data = df[features].values
 
-print("Generating normal flight data...")
-print("Generating labeled anomaly data...")
+logger.info("Starting the model training process.")
+
+logger.info("Generating normal and anomalous flight data...")
 df_normal = generate_normal_data()
 df_normal['anomaly_type'] = 'Normal'
 
 df_anomalies = generate_labeled_anomalies()
 df_combined = pd.concat([df_normal, df_anomalies], ignore_index=True)
+logger.info(f"Data generation complete. Total samples: {len(df_combined)}")
 
 features = ['lat', 'lon', 'altitude', 'battery_level']
 labels = df_combined['anomaly_type']
 data = df_combined[features].values
 
+logger.info("Scaling data...")
+
 # --- 2. Data Scaling ---
-print("Scaling data...")
 scaler = MinMaxScaler()
 data_scaled = scaler.fit_transform(data)
-joblib.dump(scaler, os.path.join(OUTPUT_DIR, 'scaler.pkl'))
-print(f"Scaler saved to {OUTPUT_DIR}/scaler.pkl")
+scaler_path = os.path.join(OUTPUT_DIR, 'scaler.pkl')
+joblib.dump(scaler, scaler_path)
+logger.info(f"Scaler saved successfully.", extra={'path': scaler_path})
 
+logger.info("Training RandomForestClassifier...")
+classifier = RandomForestClassifier(n_estimators=100, random_state=42)
+classifier.fit(data_scaled, labels)
+classifier_path = os.path.join(OUTPUT_DIR, 'classifier.pkl')
+joblib.dump(classifier, classifier_path)
+logger.info(f"Classifier trained and saved successfully.", extra={'path': classifier_path})
+
+logger.info("Preparing data for Autoencoder training...")
 # --- 3. PyTorch DataLoader ---
 tensor_data = torch.FloatTensor(data_scaled)
 dataset = TensorDataset(tensor_data, tensor_data)
 data_loader = DataLoader(dataset, batch_size=32, shuffle=True)
 
-print("Training RandomForestClassifier...")
-classifier = RandomForestClassifier(n_estimators=100, random_state=42)
-classifier.fit(data_scaled, labels)
-
-# Save the trained classifier
-classifier_path = os.path.join(OUTPUT_DIR, 'classifier.pkl')
-joblib.dump(classifier, classifier_path)
-print(f"Classifier saved to {classifier_path}")
-
 # --- 4. Model Training ---
-print("Training Autoencoder model...")
+logger.info("Training Autoencoder model...")
 model = Autoencoder()
 criterion = torch.nn.MSELoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
 num_epochs = 20
 for epoch in range(num_epochs):
+    epoch_loss = 0.0
     for data_batch, _ in data_loader:
         recon = model(data_batch)
         loss = criterion(recon, data_batch)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
-    print(f'Epoch [{epoch+1}/{num_epochs}], Loss: {loss.item():.6f}')
-
-torch.save(model.state_dict(), os.path.join(OUTPUT_DIR, 'autoencoder.pth'))
-print(f"Model trained and saved to {OUTPUT_DIR}/autoencoder.pth")
+        epoch_loss += loss.item()
+    logger.info(f"Autoencoder training progress.", extra={'epoch': epoch + 1, 'total_epochs': num_epochs, 'Loss': loss.item():.6f, 'average_loss': epoch_loss / len(data_loader)})
+autoencoder_path = os.path.join(OUTPUT_DIR, 'autoencoder.pth')
+torch.save(model.state_dict(), autoencoder_path)
+logger.info(f"Autoencoder trained and saved successfully.", extra={'path': autoencoder_path})
 
 # --- 5. Determine Anomaly Threshold ---
-print("Determining anomaly threshold...")
+logger.info("Determining anomaly threshold...")
 reconstruction_errors = []
 with torch.no_grad():
     for data_batch, _ in data_loader:
@@ -120,7 +137,9 @@ with torch.no_grad():
         reconstruction_errors.extend(loss.numpy())
 
 threshold = np.max(reconstruction_errors) * 1.2
+threshold_path = os.path.join(OUTPUT_DIR, "threshold.txt")
 print(f"Calculated anomaly threshold: {threshold}")
-with open(os.path.join(OUTPUT_DIR, "threshold.txt"), "w") as f:
+with open(threshold_path, "w") as f:
     f.write(str(threshold))
-print(f"Threshold saved to {OUTPUT_DIR}/threshold.txt")
+logger.info(f"Anomaly threshold calculated and saved.", extra={'threshold': threshold, 'path': threshold_path})
+logger.info("Model training process completed successfully.")
