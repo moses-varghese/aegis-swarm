@@ -122,7 +122,7 @@ for epoch in range(num_epochs):
         loss.backward()
         optimizer.step()
         epoch_loss += loss.item()
-    logger.info(f"Autoencoder training progress.", extra={'epoch': epoch + 1, 'total_epochs': num_epochs, 'Loss': loss.item():.6f, 'average_loss': epoch_loss / len(data_loader)})
+    logger.info(f"Autoencoder training progress.", extra={'epoch': epoch + 1, 'total_epochs': num_epochs, 'Loss': round(loss.item(), 6), 'average_loss': epoch_loss / len(data_loader)})
 autoencoder_path = os.path.join(OUTPUT_DIR, 'autoencoder.pth')
 torch.save(model.state_dict(), autoencoder_path)
 logger.info(f"Autoencoder trained and saved successfully.", extra={'path': autoencoder_path})
@@ -138,7 +138,6 @@ with torch.no_grad():
 
 threshold = np.max(reconstruction_errors) * 1.2
 threshold_path = os.path.join(OUTPUT_DIR, "threshold.txt")
-print(f"Calculated anomaly threshold: {threshold}")
 with open(threshold_path, "w") as f:
     f.write(str(threshold))
 logger.info(f"Anomaly threshold calculated and saved.", extra={'threshold': threshold, 'path': threshold_path})

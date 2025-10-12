@@ -239,7 +239,7 @@ async def websocket_drone_endpoint(websocket: WebSocket, drone_id: str):
             telemetry = json.loads(data)
             logger.debug("Received telemetry from drone.", extra={'drone_id': drone_id, 'telemetry': telemetry})
             
-            result = detector.predict(telemetry)
+            result = detector.predict(telemetry, drone_id)
             output_data = {**telemetry, **result}
 
 

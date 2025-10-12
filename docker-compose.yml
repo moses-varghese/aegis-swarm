@@ -7,6 +7,11 @@ services:
     environment:
       - discovery.type=single-node
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m" # Limit memory usage for development
+    healthcheck: # ADD THIS HEALTHCHECK
+      test: ["CMD-SHELL", "curl -s -f http://localhost:9200/_cluster/health?wait_for_status=green"]
+      interval: 10s
+      timeout: 30s
+      retries: 5
     volumes:
       - esdata:/usr/share/elasticsearch/data
     ports:
@@ -20,7 +25,22 @@ services:
     ports:
       - "5601:5601"
     depends_on:
-      - elasticsearch
+      elasticsearch:
+         condition: service_healthy
+    networks:
+      - aegis_net
+  
+  kibana-setup:
+    image: alpine/curl:latest
+    container_name: kibana-setup
+    volumes:
+      - ./kibana-setup:/setup
+    command: sh /setup/setup.sh
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      kibana:
+        condition: service_started
     networks:
       - aegis_net
 
@@ -33,20 +53,61 @@ services:
       - "24224:24224"
       - "24224:24224/udp"
     depends_on:
-      - elasticsearch
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      aegis_net:
+        ipv4_address: 172.28.0.10
+        # aliases:
+        #   - fluentd
+    healthcheck: # ADD THIS HEALTHCHECK
+      test: ["CMD", "nc", "-z", "localhost", "24224"]
+      interval: 10s
+      timeout: 60s
+      retries: 5
+  
+  wait-for-fluentd:
+    image: alpine:latest
+    container_name: wait-for-fluentd
+    command: sh -c "until nc -z fluentd 24224; do echo 'Waiting for Fluentd...'; sleep 2; done"
+    depends_on:
+      fluentd:
+        condition: service_healthy
     networks:
       - aegis_net
+
   
 
   redis:
     image: "redis:alpine"
     ports:
       - "6379:6379"
+    networks:
+      - aegis_net
+
   training:
     build: ./backend
     command: python app/ml/train.py
     volumes:
       - model-data:/app/app/ml
+    networks:
+      - aegis_net
+    depends_on: # UPDATE THIS
+      fluentd:
+        condition: service_healthy
+      wait-for-fluentd:
+        condition: service_completed_successfully
+    # extra_hosts: # ADD THIS BLOCK
+    #   - "host.docker.internal:host-gateway"
+    logging:
+      # driver: "json-file"
+      driver: "fluentd"
+      options:
+        # fluentd-address: fluentd:24224
+        fluentd-address: 172.28.0.10:24224
+        # fluentd-address: host.docker.internal:24224
+        tag: docker.training # Corrected Tag
+        mode: non-blocking # ADD THIS LINE
 
   backend:
     build: ./backend
@@ -62,17 +123,24 @@ services:
       timeout: 5s
       retries: 5
     depends_on:
+      fluentd:
+        condition: service_healthy
       training:
         condition: service_completed_successfully
       redis:
         condition: service_started
     networks:
       - aegis_net
+    # extra_hosts: # ADD THIS BLOCK
+    #   - "host.docker.internal:host-gateway"
     logging: # NEW: Send logs to Fluentd
       driver: "fluentd"
       options:
-        fluentd-address: localhost:24224
+        # fluentd-address: fluentd:24224
+        fluentd-address: 172.28.0.10:24224
+        # fluentd-address: host.docker.internal:24224
         tag: docker.backend
+        mode: non-blocking # ADD THIS LINE
 
   frontend:
     build:
@@ -84,36 +152,97 @@ services:
       - ./frontend/src:/app/src
     environment:
       - WDS_SOCKET_PORT:0
-    depends_on:
-      - backend
+    depends_on: # UPDATE THIS
+      backend:
+        condition: service_healthy
+      fluentd:
+        condition: service_healthy
     networks:
       - aegis_net
+    # extra_hosts: # ADD THIS BLOCK
+    #   - "host.docker.internal:host-gateway"
     logging: # NEW: Send logs to Fluentd
       driver: "fluentd"
       options:
-        fluentd-address: localhost:24224
-        tag: docker.backend
+        # fluentd-address: fluentd:24224
+        fluentd-address: 172.28.0.10:24224
+        # fluentd-address: host.docker.internal:24224
+        tag: docker.frontend
+        mode: non-blocking # ADD THIS LINE
 
   swarm-simulator:
     build: ./backend
     command: python swarm_launcher.py
     volumes:
       - .:/app
-    depends_on:
+    depends_on: # UPDATE THIS
       backend:
+        condition: service_healthy
+      fluentd:
         condition: service_healthy
     networks:
       - aegis_net
+    # extra_hosts: # ADD THIS BLOCK
+    #   - "host.docker.internal:host-gateway"
     logging: # NEW: Send logs to Fluentd
       driver: "fluentd"
       options:
-        fluentd-address: localhost:24224
-        tag: docker.backend
+        # fluentd-address: fluentd:24224
+        fluentd-address: 172.28.0.10:24224
+        # fluentd-address: host.docker.internal:24224
+        tag: docker.swarm-simulator
+        mode: non-blocking # ADD THIS LINE
 networks:
   aegis_net:
     driver: bridge
+    ipam:
+      config:
+        - subnet: 172.28.0.0/16
 
 volumes:
   esdata:
     driver: local
   model-data:
+
+
+# version: '3.8'
+
+# services:
+#   elasticsearch:
+#     image: docker.elastic.co/elasticsearch/elasticsearch:7.17.9
+#     container_name: elasticsearch
+#     environment:
+#       - discovery.type=single-node
+#       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+#     healthcheck:
+#       test: ["CMD-SHELL", "curl -s -f http://localhost:9200/_cluster/health?wait_for_status=yellow"]
+#       interval: 10s
+#       timeout: 10s
+#       retries: 5
+#     volumes:
+#       - esdata:/usr/share/elasticsearch/data
+#     ports:
+#       - "9200:9200"
+#     networks:
+#       - aegis_net
+
+#   fluentd:
+#     build: ./fluentd
+#     container_name: fluentd
+#     volumes:
+#       - ./fluentd/conf:/fluentd/etc
+#     ports:
+#       - "24224:24224"
+#     depends_on:
+#       elasticsearch:
+#         condition: service_healthy
+#     networks:
+#       - aegis_net
+
+# networks:
+#   aegis_net:
+#     driver: bridge
+
+# volumes:
+#   esdata:
+#     driver: local

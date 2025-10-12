@@ -4,23 +4,44 @@ import L from 'leaflet';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { LineChart, Line, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import './App.css';
+import droneIconSvg from './airplanemode_active.svg';
+
+// --- NEW: Custom Drone Icon ---
+// We use a DivIcon which allows us to use HTML and CSS for the marker, including rotation.
+const createDroneIcon = (rotation, is_anomaly) => {
+  const anomalyClass = is_anomaly ? 'drone-icon-anomaly' : '';
+  return L.divIcon({
+    className: 'drone-icon-container',
+    html: `<img src="${droneIconSvg}" style="transform: rotate(${rotation}deg);" class="drone-icon ${anomalyClass}"/>`,
+    iconSize: [30, 30],
+    iconAnchor: [15, 15],
+  });
+};
 
 // Fix for default marker icon issue with webpack
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
-  iconUrl: require('leaflet/dist/images/marker-icon.png'),
-  shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
-});
+// delete L.Icon.Default.prototype._getIconUrl;
+// L.Icon.Default.mergeOptions({
+//   iconRetinaUrl: require('leaflet/dist/images/marker-icon-2x.png'),
+//   iconUrl: require('leaflet/dist/images/marker-icon.png'),
+//   shadowUrl: require('leaflet/dist/images/marker-shadow.png'),
+// });
 
-const anomalyIcon = new L.Icon({
-    iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
-    shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-    iconSize: [25, 41],
-    iconAnchor: [12, 41],
-    popupAnchor: [1, -34],
-    shadowSize: [41, 41]
-});
+// const anomalyIcon = new L.Icon({
+//     iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png',
+//     shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+//     iconSize: [25, 41],
+//     iconAnchor: [12, 41],
+//     popupAnchor: [1, -34],
+//     shadowSize: [41, 41]
+// });
+
+// --- Helper function to calculate angle ---
+function calculateAngle(lat1, lon1, lat2, lon2) {
+  const dy = lat2 - lat1;
+  const dx = Math.cos(lat1 * (Math.PI / 180)) * (lon2 - lon1);
+  const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+  return angle;
+}
 
 function App() {
   const [drones, setDrones] = useState({});
@@ -41,6 +62,19 @@ function App() {
 
 
       setDrones(prevDrones => {
+
+        const existingDrone = prevDrones[data.drone_id];
+        let rotation = existingDrone ? existingDrone.rotation : 0;
+        if (existingDrone && (existingDrone.location.lat !== data.location.lat || existingDrone.location.lon !== data.location.lon)) {
+            rotation = calculateAngle(
+              existingDrone.location.lat,
+              existingDrone.location.lon,
+              data.location.lat,
+              data.location.lon
+            );
+          }
+
+
         const newHistory = prevDrones[data.drone_id] 
           ? [...prevDrones[data.drone_id].history, { error: data.reconstruction_error, time: new Date().toLocaleTimeString() }]
           : [{ error: data.reconstruction_error, time: new Date().toLocaleTimeString() }];
@@ -53,6 +87,7 @@ function App() {
           [data.drone_id]: {
             ...data,
             history: newHistory,
+            rotation: rotation,
           }
         };
       });
@@ -163,7 +198,9 @@ function App() {
             <Marker 
               key={drone.drone_id} 
               position={[drone.location.lat, drone.location.lon]}
-              icon={drone.is_anomaly ? anomalyIcon : new L.Icon.Default()}
+              // icon={drone.is_anomaly ? anomalyIcon : new L.Icon.Default()}
+              // icon={drone.is_anomaly ? anomalyIcon : createDroneIcon(drone.rotation)}
+              icon={createDroneIcon(drone.rotation, drone.is_anomaly)}
             >
               <Popup>
                 Drone ID: {drone.drone_id.substring(0, 8)} <br />

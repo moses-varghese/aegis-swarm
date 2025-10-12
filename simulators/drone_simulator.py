@@ -96,7 +96,7 @@ import sys
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 logHandler = logging.StreamHandler()
-formatter = jsonjsonlogger.JsonFormatter('%(asctime)s %(levelname)s %(message)s')
+formatter = jsonlogger.JsonFormatter('%(asctime)s %(levelname)s %(message)s')
 logHandler.setFormatter(formatter)
 # Avoid adding duplicate handlers if this script is imported
 if not logger.handlers:

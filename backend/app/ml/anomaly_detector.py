@@ -44,7 +44,7 @@ class AnomalyDetector:
             logger.critical("An unexpected error occurred during AnomalyDetector initialization.", exc_info=True)
             raise
 
-    def predict(self, telemetry: dict) -> dict:
+    def predict(self, telemetry: dict, drone_id: str) -> dict:
         """
         Predicts if a given telemetry data point is an anomaly.
         """
