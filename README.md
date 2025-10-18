@@ -101,6 +101,8 @@ Open your web browser and navigate to http://localhost:3000. You should see the 
 
 ![Demo GIF](images/demo.gif)
 
+![Kibana GIF](images/demo1.gif)
+
 Step 5: Stop the Application
 To stop all running services, press Ctrl+C in the terminal, and then run:
 
