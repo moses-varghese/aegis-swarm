@@ -97,7 +97,9 @@ Start the frontend container.
 Start the drone swarm simulator, which connects to the backend.
 
 Step 4: View the Application
-Open your web browser and navigate to http://localhost:3000. You should see the map and drones appearing within a few seconds.
+Open your web browser and navigate to http://localhost:3000. You should see the map and drones appearing within a few seconds.  
+
+![Demo GIF](images/demo.gif)
 
 Step 5: Stop the Application
 To stop all running services, press Ctrl+C in the terminal, and then run:
@@ -191,7 +193,9 @@ aegis-swarm/
 ├── kubernetes/
 │   ├── 01-pvc.yaml
 │   ├── 02-training-job.yaml
-│   ├── ...
+│   ├── 03-backend-deployment.yaml
+|   ├── 04-backend-service.yaml
+|   ├── 05-frontend-deployment.yaml
 │   └── 06-frontend-service.yaml
 ├── simulators/
 │   └── drone_simulator.py
